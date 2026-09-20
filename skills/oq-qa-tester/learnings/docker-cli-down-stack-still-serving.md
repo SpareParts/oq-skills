@@ -1,0 +1,3 @@
+**Trigger:** `docker`/`./docker/dev` commands hang or fail with "dial unix ~/.orbstack/run/docker.sock: no such file or directory" while deciding whether the dev stack is up.
+
+**Rule:** The OrbStack docker API socket can vanish (e.g. a pending OrbStack update — `~/.orbstack/run/.update-pending` present) while the containers keep serving. Preflight the SHOP, not the CLI: `curl -sk -o /dev/null -w '%{http_code}' https://<shop>.test/admin/login/` — a 200 means browser QA can proceed; only docker-exec paths (st-mysql, Redis, FE build) are blocked. Report the split state to the user instead of declaring the stack down; an OrbStack restart restores the socket without disturbing the stack.

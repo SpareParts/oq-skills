@@ -1,0 +1,3 @@
+**Trigger:** A `javascript_tool` result comes back as `[BLOCKED: Cookie/query string data]` or `[BLOCKED: JWT token]` instead of the value (Claude-in-Chrome DLP redaction).
+
+**Rule:** The redaction fires on the RETURNED STRING, not on what the code did — URLs with query strings and token-looking substrings are the usual triggers. The code executed fine; only the output was swallowed. Stash raw results in a `window.__qa*` variable, then return a sanitized projection: strip query strings from URLs (`u.replace(/\?.*$/,' [query]')`), return statuses plus extracted fields (e.g. formErrors) rather than raw bodies. Never re-run mutating calls just because the output was blocked.

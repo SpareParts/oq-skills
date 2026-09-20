@@ -1,0 +1,3 @@
+**Trigger:** Asserting a rejection path in the v1 create-market wizard (`/admin/pridat-online-obchod/`), v2 (`-v2/`), or the Market Settings "Jazyky a měny" save (`/admin/multi-shop/market-settings/submit/`).
+
+**Rule:** A 422 from `validate-domain-and-name` or `wizard/submit` renders NO visible error — the button silently does nothing (formErrors are keyed to step-1 fields that the final step doesn't render). Never read PASS/FAIL off the screen; capture the response body (see ajax-response-bodies-via-page-hook) and verify the DB for absent partial state. The v2 wizard additionally shows raw translation keys for its error banner and success screen.

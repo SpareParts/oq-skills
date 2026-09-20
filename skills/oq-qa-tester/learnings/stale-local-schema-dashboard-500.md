@@ -1,0 +1,3 @@
+**Trigger:** `/admin/` (the dashboard `IndexController::adminIndexAction`) renders a Tracy bluescreen `Dibi\DriverException: Unknown column 'os.peppolDispatch'` (or another column recently added on master) on the dev shop, and `/admin/login/` redirects there.
+
+**Rule:** The local DB is behind master's migrations (find the file with `git grep -l <column> migrations/`; the column is absent in `SHOW COLUMNS FROM <table>`). It is environmental, not the PR: feature pages that do not run the failing query keep working, so navigate straight to them and never park a tab on the bluescreen (its size can freeze the CDP tab). Applying the migration mutates the local DB and does not auto-revert on branch switch, so list it and ask before `/st-apply-migration`.

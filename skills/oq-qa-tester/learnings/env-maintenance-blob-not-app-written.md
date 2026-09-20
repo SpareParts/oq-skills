@@ -1,0 +1,3 @@
+**Trigger:** A scenario wants the "maintenance message precedes X" ordering of `ProjectConstants::getEnvironment()` (the `message` key of an `env:<host>` blob, `ProjectMaintenanceException`).
+
+**Rule:** Nothing in `cms/`, `scripts/` or `crm/` writes the `message` key; `ProjectConstants` only reads it (lines around 121 and 349). The state is produced outside the application (ops writes the blob), so there is no user-side flow to drive and hand-writing the blob into KeyDB would test the Redis client, not the product. Report the scenario NOT-RUN with that reason and point at the PR's unit test for the ordering.

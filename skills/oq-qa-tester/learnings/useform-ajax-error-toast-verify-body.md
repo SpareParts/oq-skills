@@ -1,0 +1,3 @@
+**Trigger:** Asserting "BE validation errors are displayed to the user" on a React admin form driven by `useForm`/`useAjaxMutation` (ajax strategy).
+
+**Rule:** Never credit the criterion from the toast's existence alone — capture the response body (fetch hook) and compare with the toast text. Observed 2026-08-26 (#43706): every 400 carried a correct translated `message` in the envelope, but the error toast rendered the HTTP reason phrase "Bad Request" for all of them — an on-screen-only check would either falsely pass ("an error toast appeared") or misattribute the generic text to missing translations. Ancillary: the write is still correctly rejected (verify DB), and the React form keeps the rejected values (see rejected-post-preserves-form-state).

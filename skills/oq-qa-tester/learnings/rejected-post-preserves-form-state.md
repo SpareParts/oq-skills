@@ -1,0 +1,3 @@
+**Trigger:** Testing "unchanged submit passes" right after a rejected submit on a legacy admin form (notifier error + redirectToSelf).
+
+**Rule:** After the rejection the form re-renders with the SUBMITTED (rejected) values, not the DB state — an immediate re-save repeats the same error and looks like a false FAIL. Revert the form to match the DB first (read the actual input states via JS, e.g. `input[name="assignedSalesChannels.N"]`), then save. Also: a rejected React-form submit leaves unsaved client state that blocks navigation with a "Leave site?" dialog — retry `navigate` with `force: true`.

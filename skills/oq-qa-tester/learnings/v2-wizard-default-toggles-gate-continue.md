@@ -1,0 +1,3 @@
+**Trigger:** The v2 create-market wizard's "Pokračovat" silently does nothing on the country / languages+currencies steps even though rows are filled (validate-name may even return 200).
+
+**Rule:** Each assigned row (delivery country, language, currency) has a "Výchozí" toggle (`button.toggle` in the row) that must be switched on — with no default marked, the step blocks with no visible error. Click the row's `button.toggle` before "Pokračovat". Also re-find rows after every re-render: refs from a previous `find` go stale after the picker mutates the table, and a click on a stale option ref silently no-ops.

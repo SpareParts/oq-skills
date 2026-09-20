@@ -1,0 +1,3 @@
+**Trigger:** Reading PASS/FAIL from `st-scheduler-job <PROJECT_ID> <JOB_ID>`'s exit code.
+
+**Rule:** The wrapper always exits 1. Its last statement is `test $IMPORT = 1 && st-redis-cli DEL $PROJECT_ID:importLock`, and with `IMPORT=0` that test fails and becomes the script's status — regardless of what the job returned. Take the evidence from the streamed log instead (`[SYNC] Partial synchronization completed successfully`, the job's own final INFO line, a `Cannot load language …` DEBUG, an `ERROR:` line) and from the DB. Verified 2026-09-17 on job 5547 `multishopCreatePrimaryMarket`, which logged full success and still exited 1.

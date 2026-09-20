@@ -1,0 +1,3 @@
+**Trigger:** Picking an existing admin ajax-strategy `useForm` page as a regression target (e.g. after Core/hooks changes) on the fenix dev shop.
+
+**Rule:** The Accounting settings pages (`/admin/doklady-obecne/` and siblings) respond with a raw JSON 500 ("Při načítání nastavení dokumentů došlo k chybě.") on fenix — environmental, the page never renders. Use `/admin/zaruka/` (WarrantiesListing) instead: plain ajax `useForm` with no explicit url/method, saves to its own URL via POST, and an unchanged save succeeds with "Záznam byl v pořádku uložen." (verified 2026-08-26). Re-check the accounting pages before reusing this note.

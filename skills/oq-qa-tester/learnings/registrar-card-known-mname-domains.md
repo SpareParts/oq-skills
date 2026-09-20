@@ -1,0 +1,3 @@
+**Trigger:** A scenario needs a non-null `registrar` in a multishop DNS payload (RegistrarCard rendering) on the dev stack, which does real DNS lookups.
+
+**Rule:** Known registrars are hardcoded in `RegistrarInformationProvider::getAllRegistrars()` and identified by the SOA mname (primary NS) — e.g. Forpsi = `ns.forpsi.net`. Use `forpsi.cz` or `forpsi.com` as the source domain (both carry that SOA on live DNS, verified 2026-08-26) to get the Forpsi card; domains at unmapped registrars (e.g. dexus-hosted `vasedomena.cz`) return `registrar: null` and no card. Check candidate domains first with `dig +short SOA <domain>` on the host.

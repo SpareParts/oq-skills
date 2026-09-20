@@ -1,0 +1,3 @@
+**Trigger:** A JSON error envelope whose `message` starts with `Project-Id-Version:` / `PO-Revision-Date:` (a gettext PO-file header dump).
+
+**Rule:** That is the messageless `HttpException::fromStatusCode($code, previous: $e)` path — the JSON error renderer translates the empty message and gettext returns the catalog header for msgid "". Treat it as "endpoint returned no user message" (a response-quality finding on the BE), not as data corruption and not as a new bug in the FE that displays it; the FE usually masks it with its generic error state. Concrete case 2026-08-26: `GET /admin/dns-redirection/detail/` with a bogus marketId.
