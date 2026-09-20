@@ -1,0 +1,15 @@
+{
+  "name": "spareparts-skills",
+  "owner": {
+    "name": "SpareParts",
+    "url": "https://github.com/SpareParts"
+  },
+  "description": "Agent skills maintained by SpareParts.",
+  "plugins": [
+    {
+      "name": "oq-skills",
+      "source": "./",
+      "description": "Jira context intake, deep pull request review, and browser-driven QA workflows."
+    }
+  ]
+}
