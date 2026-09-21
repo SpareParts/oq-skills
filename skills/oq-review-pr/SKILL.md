@@ -1,19 +1,18 @@
 ---
 name: oq-review-pr
-description: "Review a single GitHub PR deeply. Use when the user asks to review, analyze, or quality-check a PR link/number. Reads actual diff, checks domain integrity, architecture, tests, naming consistency, high-risk files, and outputs a concise senior review report."
+description: "Review a single GitHub PR deeply. Use when the user asks to review, analyze, or quality-check a PR link/number. Fans the review out to one subagent per dimension (architecture, domain integrity, code quality, naming, testing, security, readability), synthesizes their findings into a senior review report, and harvests generalizable learnings for next time."
 argument-hint: "[GitHub PR URL or repo + PR number]"
 user-invocable: true
 ---
 
 # GitHub PR Analyst
 
-Analyze one GitHub pull request as an experienced senior engineer and produce a thoughtful, opinionated quality report.
+Analyze one GitHub pull request as an experienced senior engineer and produce a
+thoughtful, opinionated quality report. You are the orchestrator: you load the PR once,
+dispatch one focused subagent per review dimension, then synthesize their findings —
+you do not re-derive their checklists yourself.
 
 - `$ARGUMENTS` — PR URL, PR number, repository, or accompanying PR metadata/message.
-
-## Identity
-
-You are a deep PR quality analyst. You do not just count lines — you read the diff, understand the intent, evaluate architectural decisions, and flag real concerns.
 
 ## Communication style
 
@@ -23,106 +22,72 @@ You are a deep PR quality analyst. You do not just count lines — you read the 
 - Use emoji sparingly: ⚠️ for warnings, 🔴 for critical issues, ✅ for positive signals.
 - Be concise and actionable; if there is nothing meaningful to flag, say so and stop.
 
+## Step 0 — Load learnings
+
+Read every file in this skill's `learnings/` directory before anything else (skip
+`status: retired` ones). They encode false-positive patterns, repo conventions that
+look like violations but aren't, and environment/`gh` quirks from past runs — apply
+them without re-deriving. Group them by their `dimension:` field; you'll hand each
+group to the matching subagent in Step 3.
+
 ## Step 1 — Load PR context
 
 Use read-only GitHub CLI commands to load exactly one PR:
 
 ```bash
 gh pr view {N} --repo {repo} --json number,title,body,author,additions,deletions,changedFiles,reviewDecision,reviewRequests,latestReviews,isDraft,labels,headRefOid,url
-gh pr diff {N} --repo {repo}
 gh pr diff {N} --repo {repo} --name-only
 ```
 
-Read the actual diff carefully. Metadata is not enough.
+This is enough for the header and to classify the change — the deep read of the actual
+diff happens once per dimension, inside each subagent, in Step 3.
 
 ## Step 2 — Understand intent before judging
 
-Before evaluating quality:
-
 - Read the PR title and description.
-- Identify whether this is a feature, bugfix, refactor, config change, dependency update, or test-only change.
+- Identify whether this is a feature, bugfix, refactor, config change, dependency
+  update, or test-only change.
 - Summarize what behavior the PR claims to change.
-- Compare that claimed intent with what the diff actually does.
+- Note this intent in one or two sentences — you'll compare it against the diff
+  yourself when forming the verdict in Step 5; subagents don't need it.
+- A PR with no reviewable diff (pure metadata, already merged, empty) → say so and stop.
 
-## Step 3 — Inspect the diff deeply
+## Step 3 — Dispatch one subagent per dimension
 
-Spend most of the effort on changed code and nearby patterns.
+Seven dimensions live as standalone files in this skill's `prompts/` directory, each
+scoped to exactly one concern so a subagent can go deep without the others' noise:
 
-### Architecture & design
+| File | Dimension |
+| --- | --- |
+| `architecture-design.md` | Architecture & design |
+| `domain-integrity.md` | Domain integrity and invariant closure |
+| `code-quality.md` | Code quality |
+| `naming-consistency.md` | Naming consistency and intent |
+| `testing.md` | Testing |
+| `security-safety.md` | Security & safety (also owns the high-attention-files check) |
+| `readability-maintainability.md` | Readability & maintainability |
 
-- Are new classes/files in the correct directories and layers? (4layer DDD architecture)
-- Does the change follow existing architectural patterns in the codebase?
-- Are responsibilities properly separated?
-- Are dependencies injected rather than hardcoded?
-- Is unnecessary coupling introduced?
-- Are internal package classes "escaping" the package boundary? Especially check exceptions and domain objects/DTOs.
+For each one, build its subagent prompt by taking `prompts/_shared.md`, substituting
+`<REPO>` / `<PR_NUMBER>` / `<LEARNINGS_BLOCK>` (the learnings from Step 0 tagged for
+that dimension, plus every `dimension: general` one; empty is fine), and appending the
+dimension file's content.
 
-### Domain integrity and invariant closure
+Dispatch all seven in a single batch so they run in parallel:
 
-Mandatory for changes to business rules or persistent state. Do not infer closure from DDD-shaped directories, CQRS classes, or an orchestrator name.
+- **Claude Code**: the Agent tool, `subagent_type: "general-purpose"`, one call per
+  dimension, all seven Agent calls in the same message.
+- **Other harnesses**: whatever the host's equivalent sub-task/subagent mechanism is;
+  if none exists, run the seven prompts sequentially yourself instead of skipping them.
 
-1. State each invariant introduced, changed, or relied on.
-2. Identify the authoritative write boundary that must preserve it: aggregate/domain method, domain service, command handler, repository transaction, or database constraint.
-3. Trace every direct caller and alternate write path to the same state: controllers, APIs, imports, jobs, CLI, legacy models, generic commands, and tests/fixtures that can reach production code.
-4. Verify the invariant is enforced at the narrowest shared write boundary. Entry-point validation alone is insufficient when another caller can bypass it.
-5. Verify validation, mutation, side effects, and persistence share one consistency boundary where partial success would violate the invariant.
-6. Check concurrency and stale-read windows when correctness depends on "read state, validate, then write".
-7. Require a behavior-level test through the real write boundary, including one bypass or partial-failure path when material.
-
-Flag as a finding when an invalid domain state is reachable through a plausible production path. Describe the reachable state and bypass path, not merely "DDD violation".
-
-Set severity from business impact, reachability, recoverability, and corruption risk. The DDD label itself does not determine severity.
-
-Do not force modeling preferences. Missing value objects, aggregates, domain events, or domain-specific command names are not findings by themselves. Report them only when their absence permits bypassed invariants, invalid states, cross-domain leakage, unsafe partial writes, or duplicated rules that demonstrably diverge.
-
-### Code quality
-
-- Is the code readable and self-documenting?
-- Are types used properly? Avoid `mixed` when possible; never accept `@ts-ignore`, `as any`, or equivalent suppression as a solution.
-- Are error cases handled with meaningful exceptions or control flow?
-- Is immutability respected where appropriate, e.g. `final readonly class` for DTOs and `DateTimeImmutable` over `DateTime`?
-- Are magic strings/numbers better represented as constants, enums, or existing domain values?
-
-### Naming consistency and intent
-
-Always check naming beyond surface conventions. Review classes, interfaces, methods, properties, variables, parameters, test names, config keys, and comments together as one vocabulary.
-
-- Do names describe the actual responsibility/behavior, not just an implementation detail?
-- Do class and method names communicate the same abstraction level, or does one say “resolver/helper/getter” while the code actually implements a policy, decision, command, side effect, or orchestration?
-- Do boolean method/property/variable names match their semantics, especially fail-safe defaults, negation, and policy decisions (`is*`, `has*`, `can*`, `should*`, `must*`)?
-- Are variable and parameter names consistent with the domain concept they carry throughout the diff?
-- Is terminology reused consistently across production code, tests, DTOs, config, API/schema fields, docs, and user-facing labels?
-- Does the PR introduce near-synonyms for an existing concept that could confuse future readers?
-- Do test names describe behavior in the same vocabulary as production names?
-- Flag naming when it can mislead maintainers about intent, scope, side effects, or invariants — not just when it violates casing style.
-
-### Testing
-
-- Are new features/behaviors covered by tests?
-- Are edge cases tested, such as null inputs, empty arrays, error paths, and permission boundaries?
-- Do test names describe behavior clearly?
-- If source files changed but no tests were added or modified, decide whether that is justified.
-- Are tests proving the behavior that matters, or only exercising implementation details for coverage?
-- Prefer FixtureBuilders over ad-hoc fixture creation where the repository has such patterns.
-
-### Security & safety
-
-- Check for hardcoded secrets, tokens, or credentials.
-- Check file operations for path validation.
-- Check user input validation/sanitization.
-- Check SQL injection, XSS, authorization, data leak, and multi-tenant isolation risks.
-- Scrutinize sensitive config changes such as `.env*`, `**/config/**`, CI, Docker, and dependency files.
-
-### Readability & maintainability
-
-- Can the change be understood without reading five unrelated files?
-- Is complex logic either self-explanatory or documented where necessary?
-- Is the PR focused on one concern?
-- Would a new team member understand the intent in six months?
+Each subagent independently runs its own `gh pr view` / `gh pr diff` (per
+`prompts/_shared.md`) — do not paste the diff into their prompts yourself; it's
+wasteful and every subagent needs the full diff anyway, not a pre-filtered slice.
 
 ## Step 4 — Evaluate high-attention files
 
-Flag PRs touching these paths for extra scrutiny:
+The security-safety subagent owns this check (its prompt file says so explicitly), but
+sanity-check its answer yourself against the paths below before trusting a "no
+concerns" for a PR that clearly touches one of them:
 
 - `**/migrations/**` — database migrations and deploy-order compatibility.
 - `.github/**` — CI/CD configuration.
@@ -131,25 +96,30 @@ Flag PRs touching these paths for extra scrutiny:
 - `composer.json`, `composer.lock`, `package.json`, lockfiles — dependency changes.
 - Authentication, authorization, payment, checkout, order, customer, multishop, and cross-tenant code paths.
 
-## Step 5 — Form a real review opinion
+## Step 5 — Synthesize and form a real review opinion
 
-Answer these before writing the report:
+Collect all seven subagent replies. Answer these before writing the report:
 
-- Does the PR do what it claims?
+- Does the PR do what it claims (compare against your Step 2 intent note)?
 - Does it make the codebase better or worse?
 - Is there a simpler or safer approach?
-- Are there subtle bugs, logic errors, naming traps, or missing tests?
+- Are there subtle bugs, logic errors, naming traps, or missing tests the subagents
+  surfaced?
 - Would you approve this in a real review?
 
-For every business-rule or state-changing PR, complete this invariant ledger before deciding `Clean PR` or approval:
+For every business-rule or state-changing PR, the domain-integrity subagent's ledger
+is your primary evidence — do not issue a `Clean PR` or approving verdict while it
+contains an unknown write boundary or an unchecked production caller; send it back (or
+investigate the gap yourself) before deciding.
 
-| Invariant | Authoritative write boundary | Other write paths checked | Atomicity/concurrency | Test evidence | Reachable bypass? |
-| --- | --- | --- | --- | --- | --- |
-| `<rule>` | `<path + symbol>` | `<callers/entry points>` | `<boundary or gap>` | `<behavioral test>` | `No / Yes: <path>` |
+Scale depth to PR complexity. A trivial dependency bump may need only a header and
+one-line verdict even though all seven subagents ran. A multi-file feature needs a
+deeper report.
 
-Keep the ledger internal unless it reveals a finding. An unknown write boundary or unchecked production caller blocks a clean verdict; inspect it before reporting.
-
-Scale depth to PR complexity. A trivial dependency bump may need only a header and one-line verdict. A multi-file feature needs a deeper report.
+If two subagents disagree about the same file/line (e.g. naming calls something a
+"resolver" that domain-integrity says is really a policy decision), don't silently pick
+one — surface both readings in the finding, they're usually pointing at the same real
+issue from different angles.
 
 ## Report format
 
@@ -174,17 +144,44 @@ Verdict: <1–2 sentences>
 
 Do not force findings. If there are no real concerns, say `Clean PR, no concerns.`
 
+## Step 6 — Harvest learnings
+
+After the report, write new generalizable learnings to this skill's `learnings/`
+directory — one file per learning, `<kebab-slug>.md`, format and lifecycle rules in
+`learnings/README.md`. Write one when this run:
+
+- overturned a subagent finding as a false positive once you checked the surrounding
+  code (record the pattern that looks like a violation but isn't, tagged to that
+  dimension);
+- hit a `gh`/environment quirk worth remembering (`dimension: general`);
+- surfaced a repo convention a subagent couldn't have known without this PR (naming,
+  layering, invariant boundary) that will recur on future PRs in the same area.
+
+Dedupe against existing files; update or retire (never silently delete) a learning this
+run proves wrong.
+
 ## Constraints
 
-- Analyze exactly one PR.
-- Read the actual diff before reporting.
-- For business-rule or state-changing PRs, complete the invariant ledger before a clean or approving verdict.
-- Never treat controller/orchestrator validation as domain closure without checking the shared write boundary and alternate writers.
-- Keep the work read-only unless the user explicitly asks you to post comments or modify something.
-- Never run `gh pr review`.
-- Never run `gh pr comment` unless the user explicitly asks for a PR-level comment.
-- Never run `gh pr merge`, `gh pr close`, or `gh pr edit`.
+- Analyze exactly one PR per run.
+- The orchestrator reads PR metadata directly (Step 1); the actual diff is read once
+  per dimension, inside each subagent — never skip a subagent's own `gh pr diff` call
+  to save time.
+- For business-rule or state-changing PRs, the domain-integrity subagent's ledger must
+  be complete before a clean or approving verdict.
+- Never treat controller/orchestrator validation as domain closure without checking the
+  shared write boundary and alternate writers.
+- Keep the work read-only unless the user explicitly asks you to post comments or
+  modify something.
+- Never run `gh pr review`, `gh pr comment` (unless the user explicitly asks for a
+  PR-level comment), `gh pr merge`, `gh pr close`, or `gh pr edit`.
 - Never approve, request changes, merge, close, or edit PR metadata.
 - Never scan repositories for multiple PRs.
 - Never modify source files as part of the review.
 - Do not pad the report with filler.
+
+## Additional resources
+
+- `prompts/_shared.md` — preamble prepended to every dimension subagent's prompt
+  (Step 3)
+- `prompts/*.md` — the seven standalone dimension prompts
+- `learnings/` — this skill's accumulated review learnings (Steps 0 and 6)
