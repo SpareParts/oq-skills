@@ -1,7 +1,7 @@
 ---
 status: active
 dimension: general
-date: 2026-10-19
+date: 2026-10-16
 ---
 
 # A NEON port alias to an implementation that is already its own service must use `factory: @<service>`, not `create: <FQCN>`
