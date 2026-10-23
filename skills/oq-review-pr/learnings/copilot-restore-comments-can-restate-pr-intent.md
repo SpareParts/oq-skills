@@ -13,7 +13,7 @@ commit with a title stating the intent, whether a test pins the new behaviour, a
 human approval postdates that commit. When all three hold, the comment is a restatement of the
 PR's intent, and the finding reduces to naming any residual edge the team should consciously
 accept rather than a blocker.
-Evidence: shoptet/cms4#46823 review (MIN-111) — Copilot's "hosts stored only in projects.url now
+Evidence: shoptet/cms4#46823 review (MIN-111) — Copilot's "Hosts stored only in projects.url now
 resolve to null" read as a regression until the commit list showed removal commit `1718ed0658`
 ("Stop reading projects.url…"), test `testStoresNoProjectForAHostKnownOnlyFromProjectsUrl`
 pinning the null outcome, and a human approval 28 minutes after the commit.

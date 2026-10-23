@@ -15,4 +15,4 @@ catch: read `composer.json`'s `tests:unit`/`tests:run` scripts and the file's di
 writing "the Unit workflow runs this test".
 Evidence: shoptet/cms4#46823 review (MIN-111) — `TokenControllerTest` under `tests/phpunit/`
 ran green in the Integration workflow (run log: "Running: tests/phpunit/…/TokenControllerTest.php",
-9 tests, 30 assertions), not "Cms4 PHP Unit Tests" as the PR's reviewers first assumed.
+9 tests, 30 assertions), not "Cms4 PHP Unit Tests".
