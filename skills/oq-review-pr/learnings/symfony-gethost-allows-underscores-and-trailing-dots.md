@@ -1,0 +1,10 @@
+---
+status: active
+dimension: general
+date: 2026-10-31
+---
+
+# Symfony `Request::getHost()` accepts underscore labels and a trailing FQDN dot — a component that narrows to RFC-1035 labels silently drops hosts the framework accepted, so review and name that narrowing as a behaviour change
+
+Why: Symfony validates the request host with `preg_replace('/[-a-zA-Z0-9_]++\.?/', '', $host) === ''`, which strips runs of letters, digits, `-` and `_` plus an optional dot and then only requires the remainder to be empty. Two consequences follow: a label may contain underscores, and the host may end in a FQDN dot. Both shapes therefore reach every host-consuming component downstream, whatever the RFC says. A new component that validates with a strict RFC-1035 label regex (`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`) or normalizes away the trailing dot is not "tightening validation for free" — it turns hosts the framework accepted into `null`/rejected input, which can change routing, tenant resolution or a redirect target for real traffic. Review such a narrowing as an intentional behaviour change, enumerate the shape classes it drops (underscore labels, trailing dot, and anything else the loose framework check allowed), and name them in the PR body even when the narrowing is an improvement and even when a sibling reader already rejected the same shapes — the PR body's behaviour-change list is the only place the team can see the full accepted-set delta.
+Evidence: shoptet/cms4#47328 (MIN-145 review, 2026-10-31); vendor/symfony/http-foundation/Request.php:2265 (`isHostValid`) vs `DomainNormalizer::isValid`'s label regex. The PR named the `0`/`000-45` id shapes in its behaviour-change list but not the underscore/trailing-dot narrowing, which the reviewer found by reading the framework's validator. Nearest existing rule: `dot-suffix-domain-checks-need-the-lookalike-test-row` is about pinning a `'.' . $parent` suffix check against look-alike domains inside your own code; this one is about the set of hosts the framework hands you before your code runs.

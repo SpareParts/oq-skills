@@ -1,0 +1,10 @@
+---
+status: active
+dimension: testing
+date: 2026-10-31
+---
+
+# A parser⟺resolver parity test over a host provider pins the ACCEPTED SET of inputs, not the output FORMAT — a coordinated writer+reader format change stays green through it
+
+Why: when a test walks both sides with `parse() !== null ⟺ resolve() !== null` over a provider of literal host strings, it asserts only that both sides accept and reject the same inputs. Any change that keeps acceptance equal — a different separator, a reordered id pair, a changed prefix — passes it, because the same literal strings are still accepted and still resolve, just to a different value or into a differently formatted string. So a reviewer must not read the parity test as "the format is pinned": the writers and readers can drift apart in FORMAT while this test stays green, and only a caller that reads one side's output with the other side's parser would notice, in production. Mitigate by pinning the literal format strings separately on the writer side (tests asserting the `'%d-%d.myshoptet.com'`-style literals do this) and by naming the writer/reader coordination requirement in the value object's home, so the next person who changes the format finds the rule where the format lives.
+Evidence: shoptet/cms4#47328 and #47329 (MIN-145 review, 2026-10-31); `ShoptetDomainParserResolverParityTest` pins acceptance across its 22-host provider, while the writer-side literal pins live in `SalesChannelReferenceTest`, `InternalHostnameTest` and `ShoptetDomainGeneratorTest`; `InternalHostname` is the VO whose home should carry the coordination note. Nearest existing rule: `pin-trailing-dot-row-when-mirroring-domain-validation` — both are about a parity/mirror test that does not assert what reviewers assume, but that one is about BE/FE validation MESSAGE parity (accept/reject can agree while the rejecting step's message legitimately diverges); this one is about a same-side parser/resolver acceptance test that cannot see an OUTPUT format change.
