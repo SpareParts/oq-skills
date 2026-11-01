@@ -1,0 +1,11 @@
+---
+status: active
+dimension: testing
+date: 2026-11-01
+---
+
+# When a pre-validation filter removes exactly the rows an assert would reject, the green suite proves nothing about that assert — pin the ORDERING and the ROLLBACK with an events double
+
+Why: a filter and an assert sharing the normalizer and the identity criterion are inverse operations, so after the filter no input reaches the assert on that path. Tests that hand the helper a "duplicate host" row and expect the assert's exception stay green either way; a reviewer reading "duplicate-host assert exists and is tested" then believes a guarantee the replace path no longer has. What needs pinning is the mechanism: ordering (the ownership delete happens between `begin` and `save`, never before `begin`) and rollback (when `save` throws, `attach` is never called and the delete sits in the transaction that unwinds). Build a small events double: wrap `runInTransaction` with a stub that records `begin`, runs the callback, records `commit`; have each mocked collaborator append a label (`remove`, `save`, `attach`); assert the exact sequence (`['begin','remove','save','attach','commit']`) and, for the failure case, the truncated one (`['begin','remove']`, `attach` `expects(never())`). A bare `expects(never())` pins that something did not happen; only the recorded sequence pins when, and only a sequence without `commit` after a throw shows the rollback boundary owns the delete.
+
+Evidence: shoptet/cms4#47336 (task MIN-147, review 2026-11-01, artifact `980f6c0d`), `CreateRedirectionServiceTest.php` at head `c19391005d`: the `setUp()` events double and the pins `testReplaceOwnWithoutCertificateRemovesInsideTheTransactionBeforeSaving` (`['begin','remove','save','attach','commit']`), `testReplaceOwnWithoutCertificateWithoutAnOwnHostRowStillRemovesBeforeTheInsert` (row invisible to the snapshot still removed) and `testOwnHostRowIsNotLostWhenAnotherProjectAlreadyRedirectsTheHost` (`['begin','remove']`, `attach` never called, exception propagated). Distinct from `single-violation-tests-do-not-pin-fail-fast-order` (two rules firing at once leaves their precedence unpinned) and `reshaped-tests-can-unpin-previous-contracts` (weakened by a reshape, not vacuous by construction).
