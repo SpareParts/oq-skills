@@ -6,10 +6,10 @@ date: 2026-11-08
 
 # A /tmp phpstan re-run of the FULL phpstan-l10 config is not reproducible without Codeception's generated traits and a `cms4/tests` path — scope L10 to the changed files instead
 
-Why: the `/tmp git-archive + vendor` extraction pattern works for the PHpat-only config
+Why: the `/tmp git-archive + vendor` extraction pattern works for the phpat-only config
 (`phpstan-architecture.neon`: vendor + `build/phpstan.constants.neon` + an empty touched
 `build/phpstan.local.neon` is enough, and it runs green on a head-exact tree). The full L10 config
-(`phpstan-l10.neon`) needs two more things a read-only checkout cannot supply: (a) the tree under a
+(`phpstan-l10.neon`) additionally needs two things: (a) the tree under a
 path containing the `cms4/tests` segment, because `shoptet.forbidStaticMethod` exempts test code by
 path only — see `tmp-phpstan-extraction-must-preserve-cms4-tests-path.md`; without the segment the
 rule fires on 800+ test helpers — and (b) Codeception's `_generated` tester traits, which are build
