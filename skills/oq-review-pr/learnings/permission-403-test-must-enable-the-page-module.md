@@ -7,7 +7,7 @@ date: 2026-11-09
 # A permission-403 functional test must enable the page's module, or setRights' inactive-module branch masks the 403
 
 Why: `PageAdmin::setRights()` grants `allowedAccess = true` for a logged-in user while the page's
-module is inactive (cms/packages/Layout/Model/PageAdmin.php:236-238, the "show module order
+module is inactive (cms/packages/Layout/Model/PageAdmin.php:235-237, the "show module order
 screen" branch) — BEFORE the permission-level and `admin_user_permissions` lookups run. A 403 test
 on a gated admin page therefore fails confusingly (passes with 200) when the section-map row's
 `module` is not active in the test environment: the test sees the module-order branch, not the
